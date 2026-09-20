@@ -1,0 +1,11 @@
+{
+  "name": "nyc-assessment-lookup",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test lib/*.test.js",
+    "build": "node scripts/build-index.mjs",
+    "classes": "node scripts/build-classes.mjs",
+    "serve": "python3 -m http.server 8080"
+  }
+}

@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Pied-à-terre tax lookup</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f8f6f1; --card: #fffdf9; --ink: #1c1b18; --muted: #77736b; --faint: #a39f96;
+    --line: #e6e1d7; --accent: #1e4d3b; --accent-soft: #e6efe9; --gold: #8a6d1f; --gold-soft: #f4ecd8;
+    --serif: "Fraunces", "Iowan Old Style", Georgia, serif;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; background: var(--bg); }
+  body { margin: 0; font: 16px/1.5 var(--sans); color: var(--ink); background: var(--bg); font-feature-settings: "tnum" 1, "cv11" 1; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 0 20px calc(48px + env(safe-area-inset-bottom)); }
+  header { padding: 28px 0 18px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+  .eyebrow { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+  h1 { font: 500 1.9rem/1.1 var(--serif); margin: 0; letter-spacing: -0.01em; }
+  h1 a { color: inherit; text-decoration: none; }
+  .roll { font-size: 0.78rem; color: var(--muted); text-align: right; white-space: nowrap; margin: 0; padding-bottom: 4px; }
+  section[hidden] { display: none; }
+  h2 { font: 500 1.65rem/1.15 var(--serif); margin: 4px 0 4px; letter-spacing: -0.01em; }
+  h2:focus { outline: none; }
+  .sub { color: var(--muted); font-size: 0.92rem; margin: 0 0 18px; }
+  .tag { display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); padding: 3px 7px; border-radius: 4px; vertical-align: 2px; margin-left: 6px; }
+  .tag.alt { color: var(--gold); background: var(--gold-soft); }
+  label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; margin: 0 0 8px; }
+  .field { position: relative; }
+  input[type=search], input[type=text], input[type=number] {
+    width: 100%; font: inherit; font-size: 1.15rem; padding: 15px 18px; border: 1px solid var(--line); border-radius: 14px;
+    background: var(--card); color: var(--ink); -webkit-appearance: none; appearance: none; box-shadow: 0 1px 2px rgba(28,27,24,.04);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input::placeholder { color: var(--faint); }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; }
+  .hint { color: var(--muted); font-size: 0.86rem; min-height: 1.4em; margin: 12px 2px 2px; }
+  .list { list-style: none; margin: 0; padding: 0; min-height: 42vh; }
+  .row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; width: 100%; padding: 14px 4px; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--ink); text-align: left; font: inherit; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .row:hover .t, .row:focus-visible .t { color: var(--accent); }
+  .row:focus-visible { outline: none; box-shadow: inset 3px 0 0 var(--accent); padding-left: 10px; }
+  .row .l { min-width: 0; }
+  .row .t { display: block; font-weight: 500; font-size: 1.02rem; }
+  .row .m { display: block; color: var(--muted); font-size: 0.84rem; margin-top: 2px; }
+  .row .r { text-align: right; flex-shrink: 0; }
+  .row .r .v { display: block; font-weight: 600; font-size: 1.02rem; }
+  .row .r .mv { display: block; color: var(--muted); font-size: 0.8rem; }
+  .row .r .none { color: var(--faint); font-weight: 500; }
+  .group { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding: 22px 4px 6px; }
+  button.back { font: inherit; font-size: 0.9rem; font-weight: 500; background: none; border: 0; color: var(--muted); padding: 14px 0 10px; cursor: pointer; margin-left: -2px; }
+  button.back:hover { color: var(--accent); }
+  .hero { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 18px; margin: 4px 0 18px; box-shadow: 0 1px 2px rgba(28,27,24,.04); }
+  .hero .k { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  .hero .n { font: 600 2.9rem/1.05 var(--serif); letter-spacing: -0.02em; margin: 6px 0 4px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .hero .n.none { color: var(--muted); font-size: 2rem; }
+  .hero .why { color: var(--muted); font-size: 0.92rem; margin: 0; }
+  .hero .mv { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .hero .mv .k { margin: 0; }
+  .hero .mv .v { font-weight: 600; font-size: 1.25rem; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 12px 0 0; padding: 0; list-style: none; font-size: 0.78rem; color: var(--muted); }
+  .legend li b { color: var(--ink); font-weight: 600; }
+  .legend li.on b { color: var(--accent); }
+  .shares { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 0; }
+  .shares input { font-size: 1.05rem; padding: 12px 14px; border-radius: 10px; }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin: 0 0 8px; }
+  .facts .f { min-width: 0; }
+  .facts .k { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 2px; }
+  .facts .v { font-weight: 500; overflow-wrap: anywhere; }
+  .facts .bbl { display: flex; align-items: center; gap: 8px; }
+  button.mini { font: inherit; font-size: 0.78rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--accent); cursor: pointer; }
+  button.mini:hover { border-color: var(--accent); }
+  details { margin: 22px 0 0; border-top: 1px solid var(--line); }
+  summary { cursor: pointer; padding: 14px 0; font-weight: 500; color: var(--muted); list-style: none; display: flex; justify-content: space-between; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-size: 1.2rem; line-height: 1; color: var(--faint); }
+  details[open] summary::after { content: "–"; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 500; color: var(--muted); width: 48%; padding-right: 12px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { font-size: 0.86rem; color: var(--muted); margin: 8px 0; }
+  .err { color: #8a2b1f; }
+  a { color: var(--accent); }
+  .sr { position: absolute; left: -9999px; }
+  .aka { font-size: 0.86rem; color: var(--muted); margin: -12px 0 18px; }
+  @media (max-width: 340px) { .facts { grid-template-columns: 1fr; } .hero .n { font-size: 2.4rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div><p class="eyebrow">Manhattan</p><h1><a href="#">Pied-à-terre tax</a></h1></div>
+  <p class="roll" id="roll"></p>
+</header>
+
+<section id="v-search" aria-labelledby="search-h">
+  <h2 id="search-h" class="sr">Search</h2>
+  <div class="field">
+    <input id="q" type="search" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search"
+           placeholder="Address or building name" aria-label="Address" aria-describedby="hint" aria-controls="results">
+  </div>
+  <div id="hint" class="hint" aria-live="polite"></div>
+  <ul id="results" class="list" aria-label="Matching buildings"></ul>
+</section>
+
+<section id="v-building" hidden aria-labelledby="b-title">
+  <button class="back" type="button" data-back>← Search</button>
+  <h2 id="b-title" tabindex="-1"></h2>
+  <p class="sub" id="b-sub"></p>
+  <p class="aka" id="b-aka" hidden></p>
+  <div id="b-units">
+    <div class="field"><input id="unit-q" type="search" autocomplete="off" placeholder="Unit" aria-label="Find a unit" aria-controls="units"></div>
+    <div class="hint" id="unit-hint"></div>
+    <ul id="units" class="list" aria-label="Units"></ul>
+  </div>
+  <div id="b-notice"></div>
+</section>
+
+<section id="v-detail" hidden aria-labelledby="d-title">
+  <button class="back" type="button" data-back>← Back</button>
+  <h2 id="d-title" tabindex="-1"></h2>
+  <p class="sub" id="d-sub"></p>
+  <div id="d-body"></div>
+</section>
+</div>
+
+<script type="module">
+import { parseQuery, streetMatches, houseNumberMatches, displayAddress, houseNumberValue } from './lib/normalize.js';
+import { isCoop, isCondoUnit, isCondoResidential, CONDO_BILLING_CLASS, TAX_CLASS_LABELS, PERIOD_LABELS } from './lib/classes.js';
+import { surcharge, coopUnitValue, bracketLegend, phaseOn } from './lib/tax.js';
+
+const $ = id => document.getElementById(id);
+const fmt$ = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+const fmtN = new Intl.NumberFormat('en-US');
+const money = v => (v == null ? '—' : fmt$.format(v));
+const short$ = v => v >= 1e6 ? `$${+(v / 1e6).toFixed(v % 1e6 ? 1 : 0)}M` : `$${fmtN.format(v)}`;
+const pct = r => `${+(r * 100).toFixed(2)}%`;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const E = { SK: 0, LO: 1, HI: 2, BLOCK: 3, ZIP: 4, TYPE: 5, CLS: 6, LOTS: 7, UNITS: 8, CONDOS: 9, ROLL: 10 };
+const TODAY = new Date();
+
+// ---------------------------------------------------------------- data
+let index = null;
+const blockCache = new Map();
+let indexError = null;
+
+async function loadIndex() {
+  if (index) return index;
+  try {
+    const r = await fetch('data/addresses.json');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    index = await r.json();
+    const m = index.meta;
+    $('roll').textContent = `FY${m.rollYear} ${m.periodLabel.toLowerCase()}`;
+    return index;
+  } catch (e) {
+    indexError = e;
+    $('hint').innerHTML = `<span class="err">The building index didn't load (${esc(e.message)}). Check the connection and reload.</span>`;
+    throw e;
+  }
+}
+async function loadBlock(block) {
+  const key = String(block).padStart(5, '0');
+  if (blockCache.has(key)) return blockCache.get(key);
+  const r = await fetch(`data/blocks/1-${key}.json`);
+  if (!r.ok) throw new Error(`Block ${Number(key)} isn't in the index (HTTP ${r.status})`);
+  const b = await r.json();
+  blockCache.set(key, b);
+  return b;
+}
+
+// ---------------------------------------------------------------- search
+function search(q) {
+  const p = parseQuery(q);
+  if (!p.street && !p.num) return { items: [], p };
+  const items = [];
+  for (const e of index.e) {
+    if (!streetMatches(p.street, e[E.SK])) continue;
+    if (!houseNumberMatches(p.num, p.numLo, e[E.LO], e[E.HI])) continue;
+    items.push(e);
+    if (items.length >= 400) break;
+  }
+  const exactNum = e => (p.num && (e[E.LO] === p.num || e[E.HI] === p.num)) ? 0 : 1;
+  const exactSt = e => (p.street && e[E.SK] === p.street) ? 0 : 1;
+  items.sort((a, b) => exactNum(a) - exactNum(b) || exactSt(a) - exactSt(b)
+    || a[E.SK].localeCompare(b[E.SK]) || (houseNumberValue(a[E.LO]) ?? 0) - (houseNumberValue(b[E.LO]) ?? 0));
+  // one row per building: an alias and its roll address both match "hudson yards" / "west 30"
+  const seen = new Set(), out = [];
+  for (const e of items) {
+    const key = e[E.CONDOS] ? `c${e[E.BLOCK]}:${e[E.CONDOS].join(',')}` : `a${e[E.BLOCK]}:${(e[E.ROLL] || [e[E.LO], e[E.HI], e[E.SK]]).join('|')}`;
+    if (seen.has(key)) continue;
+    seen.add(key); out.push(e);
+    if (out.length >= 30) break;
+  }
+  return { items: out, total: items.length, p };
+}
+function entryHash(e) {
+  if (e[E.CONDOS]) return `#c=${e[E.BLOCK]}:${e[E.CONDOS].join(',')}`;
+  const [lo, hi, sk] = e[E.ROLL] || [e[E.LO], e[E.HI], e[E.SK]];
+  return `#b=${e[E.BLOCK]}:${encodeURIComponent(lo)}:${encodeURIComponent(hi || '')}:${encodeURIComponent(sk)}`;
+}
+const tag = t => t === 'coop' ? '<span class="tag">Co-op</span>' : t === 'condo' ? '<span class="tag">Condo</span>' : '';
+const classDesc = code => { const d = index?.classes?.[code]; return d ? titleCase(d) : code || ''; };
+function titleCase(s) { return s.toLowerCase().replace(/(^|[\s(;/-])([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
+function fmtDate(yyyymmdd) {
+  if (!/^\d{8}$/.test(yyyymmdd || '')) return yyyymmdd || '';
+  return new Date(+yyyymmdd.slice(0, 4), +yyyymmdd.slice(4, 6) - 1, +yyyymmdd.slice(6)).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function renderResults(q) {
+  const ul = $('results'), hint = $('hint');
+  if (indexError) return;
+  if (!index) { hint.textContent = 'Loading…'; return; }
+  if (!q.trim()) { ul.innerHTML = ''; hint.textContent = ''; return; }
+  const { items, total, p } = search(q);
+  if (!items.length) {
+    ul.innerHTML = '';
+    hint.textContent = `Nothing for “${q.trim()}”. Try the house number with the street's full name, or the building's name.`;
+    return;
+  }
+  hint.textContent = !p.num && total > 30 ? `${fmtN.format(total)} on matching streets — add a house number` : '';
+  ul.innerHTML = items.map(e => {
+    const roll = e[E.ROLL];
+    const label = displayAddress(e[E.LO], e[E.HI], e[E.SK]);
+    const meta = roll ? `Roll address ${displayAddress(roll[0], roll[1], roll[2])}` : `${classDesc(e[E.CLS])}`;
+    return `<li><a class="row" href="${entryHash(e)}"><span class="l"><span class="t">${esc(label)}${tag(e[E.TYPE])}</span><span class="m">${esc(meta)}${unitsLabel(e)}</span></span></a></li>`;
+  }).join('');
+}
+function unitsLabel(e) {
+  if (e[E.TYPE] === 'condo') return ` · ${e[E.UNITS]} unit${e[E.UNITS] === 1 ? '' : 's'}`;
+  if (e[E.TYPE] === 'coop') return e[E.UNITS] ? ` · ${e[E.UNITS]} apartments` : '';
+  return e[E.LOTS] > 1 ? ` · ${e[E.LOTS]} lots` : '';
+}
+
+// ---------------------------------------------------------------- building
+const lotsForAddress = (b, lo, sk) => b.lots.filter(l => l.sk === sk && l.lo === lo);
+const lotsForCondo = (b, condos) => { const s = new Set(condos); return b.lots.filter(l => l.condo && s.has(l.condo)); };
+function aptSort(a, b) {
+  const pa = (a.apt || '').match(/^(\d*)(.*)$/), pb = (b.apt || '').match(/^(\d*)(.*)$/);
+  const na = pa[1] ? Number(pa[1]) : Infinity, nb = pb[1] ? Number(pb[1]) : Infinity;
+  return (na - nb) || pa[2].localeCompare(pb[2], undefined, { numeric: true }) || a.lot - b.lot;
+}
+const lotKind = l => l.bc === CONDO_BILLING_CLASS ? 'Billing lot (whole condo)' : classDesc(l.bc);
+function akaLine(b, key) {
+  const list = (b.aka || {})[key] || [];
+  const names = [...new Set(list.map(a => displayAddress(a[0], a[1], a[2])))];
+  return names.length ? `Also ${names.slice(0, 4).join(' · ')}${names.length > 4 ? ' · …' : ''}` : '';
+}
+
+async function buildingView(kind, arg) {
+  show('v-building');
+  const title = $('b-title'), sub = $('b-sub'), notice = $('b-notice'), unitsEl = $('units'), unitBox = $('b-units'), aka = $('b-aka');
+  title.textContent = 'Loading…'; sub.textContent = ''; notice.innerHTML = ''; unitsEl.innerHTML = ''; unitBox.hidden = true; aka.hidden = true;
+  let lots, label, b, akaKey;
+  try {
+    if (kind === 'condo') {
+      const [block, condoStr] = arg.split(':'); const condos = condoStr.split(',');
+      b = await loadBlock(block); lots = lotsForCondo(b, condos);
+      const billing = lots.find(l => l.bc === CONDO_BILLING_CLASS) || lots[0];
+      label = billing?.lo ? displayAddress(billing.lo, billing.hi, billing.sk) : `Condo ${condos.join(', ')}`;
+      akaKey = `c|${condos[0]}`;
+    } else {
+      const [block, lo, , sk] = arg.split(':').map(decodeURIComponent);
+      b = await loadBlock(block); lots = lotsForAddress(b, lo, sk);
+      label = displayAddress(lo, lots[0]?.hi, sk);
+      akaKey = `a|${sk}|${lo}|${String(block).padStart(5, '0')}`;
+    }
+  } catch (e) {
+    title.textContent = 'Couldn’t load that building';
+    notice.innerHTML = `<p class="note err">${esc(e.message)}. Reload and try again.</p>`;
+    return;
+  }
+  if (!lots?.length) { title.textContent = 'Nothing here'; notice.innerHTML = '<p class="note">No lots matched this link. Go back and search again.</p>'; return; }
+  title.textContent = label; title.focus();
+  const akaText = akaLine(b, akaKey);
+  if (akaText) { aka.textContent = akaText; aka.hidden = false; }
+
+  const coopLot = lots.find(l => isCoop(l.bc));
+  if (coopLot) { location.replace(`#bbl=${coopLot.bbl}`); return; }
+
+  if (lots.some(l => l.condo)) {
+    const res = lots.filter(l => isCondoResidential(l.bc)).sort(aptSort);
+    const other = lots.filter(l => !isCondoResidential(l.bc) && l.bc !== CONDO_BILLING_CLASS).sort(aptSort);
+    const billing = lots.filter(l => l.bc === CONDO_BILLING_CLASS);
+    const owing = res.filter(l => surcharge(l.mkt?.[1], { on: TODAY }).applies).length;
+    sub.innerHTML = `${tag('condo').replace(' margin-left: 6px', '')} ${res.length} residential unit${res.length === 1 ? '' : 's'} · ${owing} over the ${short$(surcharge(0, { on: TODAY }).threshold ?? bracketLegend('condo', TODAY)[0]?.min ?? 1e6)} threshold`;
+    unitBox.hidden = false;
+    const uq = $('unit-q'); uq.value = '';
+    const render = () => {
+      const f = uq.value.trim().toUpperCase().replace(/^(APT|UNIT|#)\s*/, '');
+      const match = l => !f || (l.apt || '').toUpperCase().includes(f) || String(l.lot).includes(f);
+      const r1 = res.filter(match), r2 = other.filter(match), r3 = billing.filter(match);
+      $('unit-hint').textContent = f && !(r1.length + r2.length + r3.length) ? `No unit “${f}”. DOF's apartment field can differ from the marketing name — try just the number.` : '';
+      unitsEl.innerHTML = group('Residential', r1) + group('Commercial & other', r2) + group('', r3);
+    };
+    uq.oninput = render; render();
+    return;
+  }
+
+  if (lots.length === 1) { location.replace(`#bbl=${lots[0].bbl}`); return; }
+  sub.textContent = `${lots.length} tax lots at this address`;
+  unitBox.hidden = false; $('unit-q').value = ''; $('unit-q').oninput = null; $('unit-hint').textContent = '';
+  unitsEl.innerHTML = group('', lots);
+}
+function group(heading, lots) {
+  if (!lots.length) return '';
+  return (heading ? `<li class="group">${esc(heading)}</li>` : '') + lots.map(l => {
+    const s = surcharge(l.mkt?.[1], { kind: 'condo', on: TODAY });
+    const right = s.applies ? `<span class="v">${money(s.tax)}<span class="mv">/yr</span></span><span class="mv">${money(l.mkt?.[1])}</span>`
+                            : `<span class="v none">—</span><span class="mv">${money(l.mkt?.[1])}</span>`;
+    return `<li><a class="row" href="#bbl=${l.bbl}"><span class="l"><span class="t">${esc(l.apt ? l.apt : `Lot ${l.lot}`)}</span><span class="m">${esc(lotKind(l))}${l.owner && !isCondoResidential(l.bc) ? ' · ' + esc(titleCase(l.owner)) : ''}</span></span><span class="r">${right}</span></a></li>`;
+  }).join('');
+}
+
+// ---------------------------------------------------------------- detail
+async function detailView(bbl, params) {
+  show('v-detail');
+  const title = $('d-title'), sub = $('d-sub'), body = $('d-body');
+  title.textContent = 'Loading…'; sub.textContent = ''; body.innerHTML = '';
+  let rec, blk;
+  try {
+    if (!/^1\d{9}$/.test(bbl)) throw new Error('Not a Manhattan BBL');
+    blk = await loadBlock(bbl.slice(1, 6));
+    rec = blk.lots.find(l => l.bbl === bbl);
+    if (!rec) throw new Error(`Lot ${Number(bbl.slice(6))} isn't on block ${Number(bbl.slice(1, 6))} in this roll`);
+  } catch (e) {
+    title.textContent = 'Not found';
+    body.innerHTML = `<p class="note err">${esc(e.message)}. Go back and pick the building again.</p>`;
+    return;
+  }
+  const coop = isCoop(rec.bc), condoUnit = isCondoUnit(rec.bc);
+  const addr = rec.lo ? displayAddress(rec.lo, rec.hi, rec.sk) : `Block ${Number(rec.bbl.slice(1, 6))}, lot ${rec.lot}`;
+  title.textContent = rec.apt ? `${addr}, ${rec.apt}` : addr; title.focus();
+  sub.innerHTML = `${coop ? tag('coop') : condoUnit ? tag('condo') : ''}${coop || condoUnit ? ' ' : ''}${esc(classDesc(rec.bc))}${rec.zip ? ' · ' + esc(rec.zip) : ''}`;
+  const akaKey = rec.condo ? `c|${rec.condo}` : `a|${rec.sk}|${rec.lo}|${rec.bbl.slice(1, 6)}`;
+  const akaText = akaLine(blk, akaKey);
+
+  const mkt = rec.mkt?.[1] ?? null;
+  const phase = phaseOn(TODAY);
+  const legend = bracketLegend('condo', TODAY);
+
+  // hero: surcharge first, market value second; co-ops need the unit's shares to allocate
+  const shares = { s: Number(params.get('sh')) || '', t: Number(params.get('tot')) || '' };
+  const heroFor = (base, note) => {
+    const s = surcharge(base, { kind: 'condo', on: TODAY });
+    const legendHtml = `<ul class="legend">${legend.map(b => `<li class="${s.bracket && s.bracket[0] === b.min ? 'on' : ''}"><b>${pct(b.rate)}</b> ${b.max === Infinity ? `over ${short$(b.min)}` : `${short$(b.min)}–${short$(b.max)}`}</li>`).join('')}</ul>`;
+    if (base == null) return `<p class="k">Annual pied-à-terre tax</p><p class="n none">—</p><p class="why">${note || 'No value on the roll.'}</p>${legendHtml}`;
+    if (!s.applies) return `<p class="k">Annual pied-à-terre tax</p><p class="n none">None</p><p class="why">${note || ''}${money(base)} is under the ${short$(s.threshold)} threshold.</p>${legendHtml}`;
+    return `<p class="k">Annual pied-à-terre tax</p><p class="n">${money(s.tax)}</p><p class="why">${note || ''}${pct(s.rate)} of ${money(base)}${phase ? ` · ${phase.name.toLowerCase()}` : ''}</p>${legendHtml}`;
+  };
+
+  let hero;
+  if (coop) {
+    const unitVal = coopUnitValue(mkt, shares.s, shares.t);
+    hero = `<div id="hero-inner">${heroFor(unitVal, unitVal == null ? 'Enter the apartment’s shares to allocate the building value. ' : `Unit’s share ${(shares.s / shares.t * 100).toFixed(2)}% of ${money(mkt)} · `)}</div>
+      <div class="shares">
+        <div><label for="sh">Unit shares</label><input id="sh" type="number" inputmode="numeric" min="1" placeholder="e.g. 210" value="${shares.s}"></div>
+        <div><label for="tot">Total shares</label><input id="tot" type="number" inputmode="numeric" min="1" placeholder="e.g. 12000" value="${shares.t}"></div>
+      </div>
+      <div class="mv"><p class="k">Building market value</p><span class="v">${money(mkt)}</span></div>`;
+  } else {
+    hero = heroFor(mkt) + `<div class="mv"><p class="k">DOF market value</p><span class="v">${money(mkt)}</span></div>`;
+  }
+
+  const period = PERIOD_LABELS[rec.per] || `period ${rec.per}`;
+  const dims = (f, d) => (f || d) ? `${fmtN.format(f || 0)} × ${fmtN.format(d || 0)} ft` : '—';
+  const notes = [];
+  if (akaText) notes.push(akaText);
+  if (rec.bc === CONDO_BILLING_CLASS) notes.push('Billing lot for the whole condo; values sit on the unit lots.');
+  if (rec.cur) notes.push(`Changed after the final roll — current market value ${money(rec.cur.mkt?.[1])}.`);
+  if (rec.noav) notes.push('Building in progress per DOF.');
+  if (rec.valref) notes.push('Values are carried on another lot.');
+
+  body.innerHTML = `
+    <div class="hero">${hero}</div>
+    ${notes.map(n => `<p class="note">${esc(n)}</p>`).join('')}
+    <div class="facts">
+      <div class="f"><p class="k">Assessed value</p><p class="v">${money(rec.av?.[1])}</p></div>
+      <div class="f"><p class="k">Tax class</p><p class="v">${esc(rec.tc || '—')}</p></div>
+      ${rec.uafB ? `<div class="f"><p class="k">Common interest</p><p class="v">${rec.uafB}%</p></div>` : ''}
+      ${rec.resUnits && coop ? `<div class="f"><p class="k">Apartments</p><p class="v">${rec.resUnits}</p></div>` : ''}
+      <div class="f"><p class="k">BBL</p><div class="v bbl"><span id="bbl-code">${esc(rec.bbl)}</span><button class="mini" type="button" id="copy-bbl">Copy</button></div></div>
+      <div class="f"><p class="k">Owner</p><p class="v">${esc(titleCase(rec.owner || '—'))}</p></div>
+    </div>
+    <details>
+      <summary>More about this lot</summary>
+      <table>
+        <tr><th>Building class</th><td>${esc(rec.bc)} · ${esc(classDesc(rec.bc))}</td></tr>
+        <tr><th>Tax class</th><td>${esc(TAX_CLASS_LABELS[rec.tc] || rec.tc || '—')}</td></tr>
+        <tr><th>Market value (land)</th><td class="num">${money(rec.mkt?.[0])}</td></tr>
+        <tr><th>Assessed value (actual / transitional)</th><td class="num">${money(rec.av?.[1])} / ${money(rec.tr?.[1])}</td></tr>
+        <tr><th>Taxable assessed value</th><td class="num">${money(rec.txb?.[0])}</td></tr>
+        <tr><th>Exemptions</th><td class="num">${money(rec.av?.[2])}</td></tr>
+        ${rec.apt ? `<tr><th>DOF apartment field</th><td>${esc(rec.apt)}</td></tr>` : ''}
+        <tr><th>Stories</th><td>${rec.stories ? fmtN.format(rec.stories) : '—'}</td></tr>
+        <tr><th>Year built</th><td>${rec.yb ? rec.yb + (rec.ybRange ? '–' + rec.ybRange : '') : '—'}${rec.alt1 ? ` (altered ${rec.alt1}${rec.alt2 ? ', ' + rec.alt2 : ''})` : ''}</td></tr>
+        <tr><th>Units (total / residential)</th><td>${rec.units ?? '—'} / ${rec.resUnits ?? '—'}</td></tr>
+        <tr><th>Gross square feet</th><td>${rec.gsf ? fmtN.format(rec.gsf) : '—'}</td></tr>
+        <tr><th>Building frontage × depth</th><td>${dims(rec.bldF, rec.bldD)}</td></tr>
+        <tr><th>Lot frontage × depth</th><td>${dims(rec.lotF, rec.lotD)}${rec.lotIrreg === 'I' ? ' (irregular)' : ''}</td></tr>
+        ${rec.landArea ? `<tr><th>Land area</th><td>${fmtN.format(rec.landArea)} sq ft</td></tr>` : ''}
+        ${rec.zoning ? `<tr><th>Zoning</th><td>${esc(rec.zoning)}</td></tr>` : ''}
+        ${rec.condo ? `<tr><th>Condo number</th><td>${esc(rec.condo)}${rec.condoSfx ? ` (${rec.condoSfx === 'R' ? 'residential' : rec.condoSfx === 'C' ? 'commercial' : rec.condoSfx} section)` : ''}</td></tr>` : ''}
+        ${rec.coop ? `<tr><th>Co-op number</th><td>${esc(rec.coop)}</td></tr>` : ''}
+        <tr><th>Borough / block / lot</th><td>1 / ${Number(rec.bbl.slice(1, 6))} / ${rec.lot}${rec.ease ? ' / easement ' + esc(rec.ease) : ''}</td></tr>
+        <tr><th>Roll</th><td>FY${rec.yr} ${period.toLowerCase()} · extracted ${fmtDate(blk.extract)}</td></tr>
+        <tr><th>Roll address</th><td>${esc(rec.lo ? `${rec.lo}${rec.hi && rec.hi !== rec.lo ? '-' + rec.hi : ''} ${rec.st}` : 'none')}</td></tr>
+      </table>
+      <p class="note"><a href="https://propertyinformationportal.nyc.gov/parcels/parcel/${esc(rec.bbl)}" target="_blank" rel="noopener">Open in DOF's Property Information Portal</a></p>
+    </details>`;
+
+  $('copy-bbl').addEventListener('click', async () => {
+    const btn = $('copy-bbl');
+    try { await navigator.clipboard.writeText(rec.bbl); btn.textContent = 'Copied'; }
+    catch { const r = document.createRange(); r.selectNodeContents($('bbl-code')); getSelection().removeAllRanges(); getSelection().addRange(r); btn.textContent = 'Selected'; }
+    setTimeout(() => (btn.textContent = 'Copy'), 1600);
+  });
+  if (coop) {
+    const upd = () => {
+      const s = Number($('sh').value) || '', t = Number($('tot').value) || '';
+      const h = new URLSearchParams(location.hash.slice(1));
+      if (s) h.set('sh', s); else h.delete('sh');
+      if (t) h.set('tot', t); else h.delete('tot');
+      history.replaceState(null, '', '#' + h.toString());
+      const unitVal = coopUnitValue(mkt, s, t);
+      $('hero-inner').innerHTML = heroFor(unitVal, unitVal == null ? 'Enter the apartment’s shares to allocate the building value. ' : `Unit’s share ${(s / t * 100).toFixed(2)}% of ${money(mkt)} · `);
+    };
+    $('sh').addEventListener('input', upd); $('tot').addEventListener('input', upd);
+  }
+}
+
+// ---------------------------------------------------------------- routing
+const views = ['v-search', 'v-building', 'v-detail'];
+function show(id) { for (const v of views) $(v).hidden = v !== id; window.scrollTo(0, 0); }
+function route() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.has('bbl')) return detailView(h.get('bbl'), h);
+  if (h.has('c')) return buildingView('condo', h.get('c'));
+  if (h.has('b')) return buildingView('addr', h.get('b'));
+  show('v-search');
+  const q = h.get('q') ?? $('q').value;
+  if ($('q').value !== q) $('q').value = q;
+  renderResults(q);
+}
+let t = null;
+$('q').addEventListener('input', () => {
+  clearTimeout(t);
+  const q = $('q').value;
+  t = setTimeout(() => { history.replaceState(null, '', q ? `#q=${encodeURIComponent(q)}` : location.pathname); renderResults(q); }, 60);
+});
+const pickFirst = () => { const first = $('results').querySelector('a'); if (first) first.click(); };
+$('q').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { const first = $('results').querySelector('a'); if (first) { e.preventDefault(); first.focus(); } }
+  if (e.key === 'Escape') { $('q').value = ''; renderResults(''); }
+  if (e.key === 'Enter') { e.preventDefault(); pickFirst(); }
+});
+$('q').addEventListener('search', () => { if ($('q').value.trim()) pickFirst(); });
+document.addEventListener('keydown', e => {
+  if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+  const a = document.activeElement; if (!a?.classList.contains('row')) return;
+  const rows = [...a.closest('ul').querySelectorAll('a.row')]; const i = rows.indexOf(a);
+  const n = rows[i + (e.key === 'ArrowDown' ? 1 : -1)];
+  e.preventDefault(); if (n) n.focus(); else if (e.key === 'ArrowUp') $('q').focus();
+});
+document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
+  if (history.length > 1) history.back(); else location.hash = '';
+}));
+window.addEventListener('hashchange', route);
+
+loadIndex().then(route).catch(() => {});
+route();
+if (!location.hash) $('q').focus();
+</script>
+</body>
+</html>

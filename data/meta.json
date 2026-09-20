@@ -1,0 +1,33 @@
+{
+  "borough": 1,
+  "boroughName": "Manhattan",
+  "rollYear": 2027,
+  "period": 3,
+  "periodLabel": "Final roll",
+  "extractDate": "20260515",
+  "sourceFile": "PROPMAST_TC234_T2027_FIN.TXT",
+  "built": "2026-09-19",
+  "counts": {
+    "rowsInFile": 461249,
+    "lots": 172623,
+    "addresses": 35831,
+    "aliases": 25724,
+    "blocks": 1962,
+    "lotsWithoutAddress": 1338
+  },
+  "schema": {
+    "entry": [
+      "streetKey",
+      "houseLo",
+      "houseHi",
+      "block",
+      "zip",
+      "type",
+      "bldgClass",
+      "lots",
+      "units",
+      "condoNumbers",
+      "rollAddress [lo, hi, streetKey] when this entry is an alias, else 0"
+    ]
+  }
+}
