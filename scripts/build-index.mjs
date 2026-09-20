@@ -26,8 +26,8 @@ const PAD_FILE = path.join(RAW_DIR, 'pad', 'bobaadr.txt');
 // G = name of a complex. Q (pseudo-address ranges for vacant frontage) and the rest are skipped.
 const PAD_TYPES = new Set(['', 'V', 'N', 'X', 'G']);
 
-const file = process.argv[2] || findRoll();
-console.log(`reading ${file}`);
+const files = process.argv[2] ? [process.argv[2]] : findRolls();
+console.log(`reading ${files.join(', ')}`);
 
 const REQUIRED = [
   'BORO', 'BLOCK', 'LOT', 'EASE', 'TAXYR', 'PERIOD', 'EXTRACTDT',
@@ -52,6 +52,8 @@ const groups = new Map();   // "sk|lo|hi|block" -> aggregate for tier 1
 const meta = { rollYear: null, period: null, extractDate: null };
 let idx = null, total = 0, kept = 0, skippedNoAddr = 0;
 
+for (const file of files) {
+idx = null;
 const rl = readline.createInterface({ input: fs.createReadStream(file, { encoding: 'latin1' }), crlfDelay: Infinity });
 for await (const line of rl) {
   if (!idx) {
@@ -128,6 +130,7 @@ for await (const line of rl) {
   if (rec.zip) a.zips.set(rec.zip, (a.zips.get(rec.zip) || 0) + 1);
   if (rec.condo) a.condos.add(rec.condo);
 }
+}
 
 // ---- tier 1 -------------------------------------------------------------
 // A "building" is a condo (all lots sharing CONDO_NUMBER, possibly across several
@@ -155,8 +158,9 @@ for (const a of groups.values()) {
     cls = mode(res.map(l => l.bc)) || mode(a.lots.filter(l => isCondoUnit(l.bc)).map(l => l.bc)) || a.lots[0].bc;
     units = res.length;
   } else {
-    type = 'other';
     const big = a.lots.reduce((m, l) => ((l.mkt?.[1] || 0) > (m.mkt?.[1] || 0) ? l : m), a.lots[0]);
+    // class 1 (1–3 family homes) has its own surcharge schedule; everything else in class 2/3/4 is uncovered
+    type = String(big.tc || '').startsWith('1') && !String(big.bc || '').startsWith('V') ? 'class1' : 'other';
     cls = big.bc; units = a.lots.reduce((s, l) => s + (l.units || 0), 0);
   }
   const zip = [...a.zips.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] || '';
@@ -229,7 +233,7 @@ catch { console.warn('data/building-classes.json missing — run `npm run classe
 const fullMeta = {
   borough: Number(BORO), boroughName: 'Manhattan',
   rollYear: meta.rollYear, period: meta.period, periodLabel: PERIOD_LABELS[meta.period] || `period ${meta.period}`,
-  extractDate: meta.extractDate, sourceFile: path.basename(file), built: new Date().toISOString().slice(0, 10),
+  extractDate: meta.extractDate, sourceFiles: files.map(f => path.basename(f)), built: new Date().toISOString().slice(0, 10),
   counts: { rowsInFile: total, lots: kept, addresses: entries.length - aliasCount, aliases: aliasCount, blocks: blocks.size, lotsWithoutAddress: skippedNoAddr },
   schema: { entry: ['streetKey', 'houseLo', 'houseHi', 'block', 'zip', 'type', 'bldgClass', 'lots', 'units', 'condoNumbers', 'rollAddress [lo, hi, streetKey] when this entry is an alias, else 0'] },
 };
@@ -240,10 +244,11 @@ console.log(JSON.stringify(fullMeta.counts));
 console.log(`addresses.json ${(fs.statSync(path.join(OUT_DIR, 'addresses.json')).size / 1e6).toFixed(2)} MB`);
 console.log('largest blocks (bytes, lots):', biggest.slice(0, 6).map(b => `${b[0]}:${(b[1] / 1e6).toFixed(2)}MB/${b[2]}`).join(' '));
 
-function findRoll() {
-  const f = fs.readdirSync(RAW_DIR).find(n => /^PROPMAST.*\.TXT$/i.test(n));
-  if (!f) throw new Error(`no PROPMAST_*.TXT in ${RAW_DIR}/ — unzip the DOF roll there first (see README)`);
-  return path.join(RAW_DIR, f);
+function findRolls() {
+  // every roll file in raw/: the class 2/3/4 file and, when present, the class 1 file
+  const list = fs.readdirSync(RAW_DIR).filter(n => /^PROPMAST.*\.TXT$/i.test(n)).sort();
+  if (!list.length) throw new Error(`no PROPMAST_*.TXT in ${RAW_DIR}/ — unzip the DOF roll there first (see README)`);
+  return list.map(f => path.join(RAW_DIR, f));
 }
 function mode(arr) {
   const c = new Map(); let best = null, bn = 0;

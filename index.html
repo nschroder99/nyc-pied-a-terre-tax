@@ -134,7 +134,7 @@
 <script type="module">
 import { parseQuery, streetMatches, houseNumberMatches, displayAddress, houseNumberValue } from './lib/normalize.js';
 import { isCoop, isCondoUnit, isCondoResidential, CONDO_BILLING_CLASS, TAX_CLASS_LABELS, PERIOD_LABELS } from './lib/classes.js';
-import { surcharge, coopUnitValue, bracketLegend, phaseOn } from './lib/tax.js';
+import { surcharge, coopUnitValue, bracketLegend, phaseOn, coverage } from './lib/tax.js';
 
 const $ = id => document.getElementById(id);
 const fmt$ = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -206,7 +206,7 @@ function entryHash(e) {
   const [lo, hi, sk] = e[E.ROLL] || [e[E.LO], e[E.HI], e[E.SK]];
   return `#b=${e[E.BLOCK]}:${encodeURIComponent(lo)}:${encodeURIComponent(hi || '')}:${encodeURIComponent(sk)}`;
 }
-const tag = t => t === 'coop' ? '<span class="tag">Co-op</span>' : t === 'condo' ? '<span class="tag">Condo</span>' : '';
+const tag = t => t === 'coop' ? '<span class="tag">Co-op</span>' : t === 'condo' ? '<span class="tag">Condo</span>' : t === 'class1' ? '<span class="tag">1–3 family</span>' : '';
 const classDesc = code => { const d = index?.classes?.[code]; return d ? titleCase(d) : code || ''; };
 function titleCase(s) { return s.toLowerCase().replace(/(^|[\s(;/-])([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
 function fmtDate(yyyymmdd) {
@@ -289,8 +289,8 @@ async function buildingView(kind, arg) {
     const res = lots.filter(l => isCondoResidential(l.bc)).sort(aptSort);
     const other = lots.filter(l => !isCondoResidential(l.bc) && l.bc !== CONDO_BILLING_CLASS).sort(aptSort);
     const billing = lots.filter(l => l.bc === CONDO_BILLING_CLASS);
-    const owing = res.filter(l => surcharge(l.mkt?.[1], { on: TODAY }).applies).length;
-    sub.innerHTML = `${tag('condo').replace(' margin-left: 6px', '')} ${res.length} residential unit${res.length === 1 ? '' : 's'} · ${owing} over the ${short$(surcharge(0, { on: TODAY }).threshold ?? bracketLegend('condo', TODAY)[0]?.min ?? 1e6)} threshold`;
+    const owing = res.filter(l => surcharge(l.mkt?.[1], { kind: coverage(l).kind, on: TODAY }).applies).length;
+    sub.innerHTML = `${tag('condo')} ${res.length} residential unit${res.length === 1 ? '' : 's'} · ${owing} over the threshold`;
     unitBox.hidden = false;
     const uq = $('unit-q'); uq.value = '';
     const render = () => {
@@ -312,9 +312,10 @@ async function buildingView(kind, arg) {
 function group(heading, lots) {
   if (!lots.length) return '';
   return (heading ? `<li class="group">${esc(heading)}</li>` : '') + lots.map(l => {
-    const s = surcharge(l.mkt?.[1], { kind: 'condo', on: TODAY });
+    const cov = coverage(l);
+    const s = surcharge(l.mkt?.[1], { kind: cov.kind, on: TODAY });
     const right = s.applies ? `<span class="v">${money(s.tax)}<span class="mv">/yr</span></span><span class="mv">${money(l.mkt?.[1])}</span>`
-                            : `<span class="v none">—</span><span class="mv">${money(l.mkt?.[1])}</span>`;
+                            : `<span class="v none">${cov.kind === 'none' ? 'n/a' : '—'}</span><span class="mv">${money(l.mkt?.[1])}</span>`;
     return `<li><a class="row" href="#bbl=${l.bbl}"><span class="l"><span class="t">${esc(l.apt ? l.apt : `Lot ${l.lot}`)}</span><span class="m">${esc(lotKind(l))}${l.owner && !isCondoResidential(l.bc) ? ' · ' + esc(titleCase(l.owner)) : ''}</span></span><span class="r">${right}</span></a></li>`;
   }).join('');
 }
@@ -338,22 +339,24 @@ async function detailView(bbl, params) {
   const coop = isCoop(rec.bc), condoUnit = isCondoUnit(rec.bc);
   const addr = rec.lo ? displayAddress(rec.lo, rec.hi, rec.sk) : `Block ${Number(rec.bbl.slice(1, 6))}, lot ${rec.lot}`;
   title.textContent = rec.apt ? `${addr}, ${rec.apt}` : addr; title.focus();
-  sub.innerHTML = `${coop ? tag('coop') : condoUnit ? tag('condo') : ''}${coop || condoUnit ? ' ' : ''}${esc(classDesc(rec.bc))}${rec.zip ? ' · ' + esc(rec.zip) : ''}`;
+  const cov = coverage(rec);
+  sub.innerHTML = `${coop ? tag('coop') : condoUnit ? tag('condo') : cov.kind === 'class1' ? tag('class1') : ''}${coop || condoUnit || cov.kind === 'class1' ? ' ' : ''}${esc(classDesc(rec.bc))}${rec.zip ? ' · ' + esc(rec.zip) : ''}`;
   const akaKey = rec.condo ? `c|${rec.condo}` : `a|${rec.sk}|${rec.lo}|${rec.bbl.slice(1, 6)}`;
   const akaText = akaLine(blk, akaKey);
 
   const mkt = rec.mkt?.[1] ?? null;
   const phase = phaseOn(TODAY);
-  const legend = bracketLegend('condo', TODAY);
+  const legend = bracketLegend(cov.kind === 'class1' ? 'class1' : 'condo', TODAY);
 
   // hero: surcharge first, market value second; co-ops need the unit's shares to allocate
   const shares = { s: Number(params.get('sh')) || '', t: Number(params.get('tot')) || '' };
   const heroFor = (base, note) => {
-    const s = surcharge(base, { kind: 'condo', on: TODAY });
+    const s = surcharge(base, { kind: cov.kind, on: TODAY });
     const legendHtml = `<ul class="legend">${legend.map(b => `<li class="${s.bracket && s.bracket[0] === b.min ? 'on' : ''}"><b>${pct(b.rate)}</b> ${b.max === Infinity ? `over ${short$(b.min)}` : `${short$(b.min)}–${short$(b.max)}`}</li>`).join('')}</ul>`;
+    if (cov.kind === 'none') return `<p class="k">Annual pied-à-terre tax</p><p class="n none">Not covered</p><p class="why">${esc(cov.reason)}${rec.tc ? ` (tax class ${esc(rec.tc)})` : ''}.</p>`;
     if (base == null) return `<p class="k">Annual pied-à-terre tax</p><p class="n none">—</p><p class="why">${note || 'No value on the roll.'}</p>${legendHtml}`;
     if (!s.applies) return `<p class="k">Annual pied-à-terre tax</p><p class="n none">None</p><p class="why">${note || ''}${money(base)} is under the ${short$(s.threshold)} threshold.</p>${legendHtml}`;
-    return `<p class="k">Annual pied-à-terre tax</p><p class="n">${money(s.tax)}</p><p class="why">${note || ''}${pct(s.rate)} of ${money(base)}${phase ? ` · ${phase.name.toLowerCase()}` : ''}</p>${legendHtml}`;
+    return `<p class="k">Annual pied-à-terre tax</p><p class="n">${money(s.tax)}</p><p class="why">${note || ''}${pct(s.rate)} of ${money(base)}${phase ? ` · ${phase.name.toLowerCase()}` : ''}${cov.kind === 'class1' ? ' · 1–3 family schedule' : ''}</p>${legendHtml}`;
   };
 
   let hero;
