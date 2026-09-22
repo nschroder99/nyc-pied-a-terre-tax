@@ -76,6 +76,10 @@
   .facts .bbl { display: flex; align-items: center; gap: 8px; }
   button.mini { font: inherit; font-size: 0.78rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--accent); cursor: pointer; }
   button.mini:hover { border-color: var(--accent); }
+  li.unit { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
+  li.unit .row { border-bottom: 0; flex: 1; min-width: 0; }
+  li.unit button.mini { flex-shrink: 0; }
+  .hero .copy { margin: 14px 0 0; }
   details { margin: 22px 0 0; border-top: 1px solid var(--line); }
   summary { cursor: pointer; padding: 14px 0; font-weight: 500; color: var(--muted); list-style: none; display: flex; justify-content: space-between; }
   summary::-webkit-details-marker { display: none; }
@@ -239,6 +243,30 @@ function unitsLabel(e) {
   return e[E.LOTS] > 1 ? ` · ${e[E.LOTS]} lots` : '';
 }
 
+// ---------------------------------------------------------------- copy
+const lotAddress = l => l.lo ? displayAddress(l.lo, l.hi, l.sk) : `Block ${Number(l.bbl.slice(1, 6))}, lot ${l.lot}`;
+const unitLabel = l => l.apt ? `${lotAddress(l)}, ${l.apt}` : lotAddress(l);
+function summaryText(label, value, base, cov) {
+  const s = surcharge(base, { kind: cov.kind, on: TODAY });
+  const due = cov.kind === 'none' ? 'Not covered' : base == null ? '—' : money(s.applies ? s.tax : 0);
+  return `*${label}*\nDOF Value: ${money(value)}\nTax Due: ${due}`;
+}
+async function copyText(text, btn) {
+  const label = btn.textContent;
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text });
+    ta.style.cssText = 'position:fixed;opacity:0'; document.body.append(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  btn.textContent = 'Copied';
+  setTimeout(() => (btn.textContent = label), 1600);
+}
+// one delegated listener for the per-unit copy buttons in the building list
+$('units').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-copy]'); if (btn) copyText(btn.dataset.copy, btn);
+});
+
 // ---------------------------------------------------------------- building
 const lotsForAddress = (b, lo, sk) => b.lots.filter(l => l.sk === sk && l.lo === lo);
 const lotsForCondo = (b, condos) => { const s = new Set(condos); return b.lots.filter(l => l.condo && s.has(l.condo)); };
@@ -316,7 +344,8 @@ function group(heading, lots) {
     const s = surcharge(l.mkt?.[1], { kind: cov.kind, on: TODAY });
     const right = s.applies ? `<span class="v">${money(s.tax)}<span class="mv">/yr</span></span><span class="mv">${money(l.mkt?.[1])}</span>`
                             : `<span class="v none">${cov.kind === 'none' ? 'n/a' : '—'}</span><span class="mv">${money(l.mkt?.[1])}</span>`;
-    return `<li><a class="row" href="#bbl=${l.bbl}"><span class="l"><span class="t">${esc(l.apt ? l.apt : `Lot ${l.lot}`)}</span><span class="m">${esc(lotKind(l))}${l.owner && !isCondoResidential(l.bc) ? ' · ' + esc(titleCase(l.owner)) : ''}</span></span><span class="r">${right}</span></a></li>`;
+    const copy = summaryText(unitLabel(l), l.mkt?.[1], l.mkt?.[1] ?? null, cov);
+    return `<li class="unit"><a class="row" href="#bbl=${l.bbl}"><span class="l"><span class="t">${esc(l.apt ? l.apt : `Lot ${l.lot}`)}</span><span class="m">${esc(lotKind(l))}${l.owner && !isCondoResidential(l.bc) ? ' · ' + esc(titleCase(l.owner)) : ''}</span></span><span class="r">${right}</span></a><button class="mini" type="button" data-copy="${esc(copy)}" aria-label="Copy summary for ${esc(l.apt || `lot ${l.lot}`)}">Copy</button></li>`;
   }).join('');
 }
 
@@ -337,8 +366,7 @@ async function detailView(bbl, params) {
     return;
   }
   const coop = isCoop(rec.bc), condoUnit = isCondoUnit(rec.bc);
-  const addr = rec.lo ? displayAddress(rec.lo, rec.hi, rec.sk) : `Block ${Number(rec.bbl.slice(1, 6))}, lot ${rec.lot}`;
-  title.textContent = rec.apt ? `${addr}, ${rec.apt}` : addr; title.focus();
+  title.textContent = unitLabel(rec); title.focus();
   const cov = coverage(rec);
   sub.innerHTML = `${coop ? tag('coop') : condoUnit ? tag('condo') : cov.kind === 'class1' ? tag('class1') : ''}${coop || condoUnit || cov.kind === 'class1' ? ' ' : ''}${esc(classDesc(rec.bc))}${rec.zip ? ' · ' + esc(rec.zip) : ''}`;
   const akaKey = rec.condo ? `c|${rec.condo}` : `a|${rec.sk}|${rec.lo}|${rec.bbl.slice(1, 6)}`;
@@ -382,7 +410,7 @@ async function detailView(bbl, params) {
   if (rec.valref) notes.push('Values are carried on another lot.');
 
   body.innerHTML = `
-    <div class="hero">${hero}</div>
+    <div class="hero">${hero}<div class="copy"><button class="mini" type="button" id="copy-summary">Copy summary</button></div></div>
     ${notes.map(n => `<p class="note">${esc(n)}</p>`).join('')}
     <div class="facts">
       <div class="f"><p class="k">Assessed value</p><p class="v">${money(rec.av?.[1])}</p></div>
@@ -424,6 +452,11 @@ async function detailView(bbl, params) {
     try { await navigator.clipboard.writeText(rec.bbl); btn.textContent = 'Copied'; }
     catch { const r = document.createRange(); r.selectNodeContents($('bbl-code')); getSelection().removeAllRanges(); getSelection().addRange(r); btn.textContent = 'Selected'; }
     setTimeout(() => (btn.textContent = 'Copy'), 1600);
+  });
+  // a co-op copies the allocated unit value once shares are entered; without shares, the building value and no tax
+  $('copy-summary').addEventListener('click', e => {
+    const base = coop ? coopUnitValue(mkt, Number($('sh').value), Number($('tot').value)) : mkt;
+    copyText(summaryText(unitLabel(rec), base ?? mkt, base, cov), e.currentTarget);
   });
   if (coop) {
     const upd = () => {
