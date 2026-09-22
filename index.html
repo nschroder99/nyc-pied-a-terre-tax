@@ -249,7 +249,7 @@ const unitLabel = l => l.apt ? `${lotAddress(l)}, ${l.apt}` : lotAddress(l);
 function summaryText(label, value, base, cov) {
   const s = surcharge(base, { kind: cov.kind, on: TODAY });
   const due = cov.kind === 'none' ? 'Not covered' : base == null ? '—' : money(s.applies ? s.tax : 0);
-  return `*${label}*\nDOF Value: ${money(value)}\nTax Due: ${due}`;
+  return `${label}\nDOF Value: ${money(value)}\nTax Due: ${due}`;
 }
 async function copyText(text, btn) {
   const label = btn.textContent;
