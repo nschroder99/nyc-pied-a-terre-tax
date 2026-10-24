@@ -72,6 +72,8 @@ for await (const line of rl) {
   const block = str(g('BLOCK')).padStart(5, '0');
   const lot = str(g('LOT')).padStart(4, '0');
   const bbl = `${BORO}${block}${lot}`;
+  // block names a shard file and bbl lands in links: fail the build on anything that isn't digits
+  if (!/^\d{10}$/.test(bbl)) throw new Error(`Unexpected BLOCK/LOT in roll line ${total}: ${JSON.stringify([g('BLOCK'), g('LOT')])}`);
   const lo = normalizeHouseNumber(g('HOUSENUM_LO'));
   const hi = normalizeHouseNumber(g('HOUSENUM_HI'));
   const stRaw = str(g('STREET_NAME'));

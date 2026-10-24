@@ -174,6 +174,8 @@ async function loadIndex() {
   }
 }
 async function loadBlock(block) {
+  // block comes from the link hash: digits only, so a crafted link can't point the fetch at another file
+  if (!/^\d{1,5}$/.test(String(block))) throw new Error("That link doesn't point to a Manhattan block");
   const key = String(block).padStart(5, '0');
   if (blockCache.has(key)) return blockCache.get(key);
   const r = await fetch(`data/blocks/1-${key}.json`);
@@ -209,9 +211,9 @@ function search(q) {
   return { items: out, total: items.length, p };
 }
 function entryHash(e) {
-  if (e[E.CONDOS]) return `#c=${e[E.BLOCK]}:${e[E.CONDOS].join(',')}`;
+  if (e[E.CONDOS]) return `#c=${encodeURIComponent(e[E.BLOCK])}:${e[E.CONDOS].map(encodeURIComponent).join(',')}`;
   const [lo, hi, sk] = e[E.ROLL] || [e[E.LO], e[E.HI], e[E.SK]];
-  return `#b=${e[E.BLOCK]}:${encodeURIComponent(lo)}:${encodeURIComponent(hi || '')}:${encodeURIComponent(sk)}`;
+  return `#b=${encodeURIComponent(e[E.BLOCK])}:${encodeURIComponent(lo)}:${encodeURIComponent(hi || '')}:${encodeURIComponent(sk)}`;
 }
 const tag = t => t === 'coop' ? '<span class="tag">Co-op</span>' : t === 'condo' ? '<span class="tag">Condo</span>' : t === 'class1' ? '<span class="tag">1–3 family</span>' : '';
 const classDesc = code => { const d = index?.classes?.[code]; return d ? titleCase(d) : code || ''; };
@@ -348,7 +350,7 @@ function group(heading, lots) {
     const right = s.applies ? `<span class="v">${money(s.tax)}<span class="mv">/yr</span></span><span class="mv">${money(l.mkt?.[1])}</span>`
                             : `<span class="v none">${cov.kind === 'none' ? 'n/a' : '—'}</span><span class="mv">${money(l.mkt?.[1])}</span>`;
     const copy = summaryText(unitLabel(l), l.mkt?.[1], l.mkt?.[1] ?? null, cov);
-    return `<li class="unit"><a class="row" href="#bbl=${l.bbl}"><span class="l"><span class="t">${esc(l.apt ? l.apt : `Lot ${l.lot}`)}</span><span class="m">${esc(lotKind(l))}${l.owner && !isCondoResidential(l.bc) ? ' · ' + esc(titleCase(l.owner)) : ''}</span></span><span class="r">${right}</span></a><button class="mini" type="button" data-copy="${esc(copy)}" aria-label="Copy summary for ${esc(l.apt || `lot ${l.lot}`)}">Copy</button></li>`;
+    return `<li class="unit"><a class="row" href="#bbl=${esc(l.bbl)}"><span class="l"><span class="t">${esc(l.apt ? l.apt : `Lot ${l.lot}`)}</span><span class="m">${esc(lotKind(l))}${l.owner && !isCondoResidential(l.bc) ? ' · ' + esc(titleCase(l.owner)) : ''}</span></span><span class="r">${right}</span></a><button class="mini" type="button" data-copy="${esc(copy)}" aria-label="Copy summary for ${esc(l.apt || `lot ${l.lot}`)}">Copy</button></li>`;
   }).join('');
 }
 
@@ -441,10 +443,10 @@ async function detailView(bbl, params) {
         <tr><th>Lot frontage × depth</th><td>${dims(rec.lotF, rec.lotD)}${rec.lotIrreg === 'I' ? ' (irregular)' : ''}</td></tr>
         ${rec.landArea ? `<tr><th>Land area</th><td>${fmtN.format(rec.landArea)} sq ft</td></tr>` : ''}
         ${rec.zoning ? `<tr><th>Zoning</th><td>${esc(rec.zoning)}</td></tr>` : ''}
-        ${rec.condo ? `<tr><th>Condo number</th><td>${esc(rec.condo)}${rec.condoSfx ? ` (${rec.condoSfx === 'R' ? 'residential' : rec.condoSfx === 'C' ? 'commercial' : rec.condoSfx} section)` : ''}</td></tr>` : ''}
+        ${rec.condo ? `<tr><th>Condo number</th><td>${esc(rec.condo)}${rec.condoSfx ? ` (${rec.condoSfx === 'R' ? 'residential' : rec.condoSfx === 'C' ? 'commercial' : esc(rec.condoSfx)} section)` : ''}</td></tr>` : ''}
         ${rec.coop ? `<tr><th>Co-op number</th><td>${esc(rec.coop)}</td></tr>` : ''}
         <tr><th>Borough / block / lot</th><td>1 / ${Number(rec.bbl.slice(1, 6))} / ${rec.lot}${rec.ease ? ' / easement ' + esc(rec.ease) : ''}</td></tr>
-        <tr><th>Roll</th><td>FY${rec.yr} ${period.toLowerCase()} · extracted ${fmtDate(blk.extract)}</td></tr>
+        <tr><th>Roll</th><td>FY${rec.yr} ${period.toLowerCase()} · extracted ${esc(fmtDate(blk.extract))}</td></tr>
         <tr><th>Roll address</th><td>${esc(rec.lo ? `${rec.lo}${rec.hi && rec.hi !== rec.lo ? '-' + rec.hi : ''} ${rec.st}` : 'none')}</td></tr>
       </table>
       <p class="note"><a href="https://propertyinformationportal.nyc.gov/parcels/parcel/${esc(rec.bbl)}" target="_blank" rel="noopener">Open in DOF's Property Information Portal</a></p>
